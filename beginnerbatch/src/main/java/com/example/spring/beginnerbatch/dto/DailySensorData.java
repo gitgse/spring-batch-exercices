@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Classe contenant les données brutes relevées par un capteur pour une journée donnée
+ * Record contenant les données brutes relevées par un capteur pour une journée donnée
  *
  * Paramètres:
  * 	date: la date à laquelle ont été effectués les relevés
