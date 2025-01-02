@@ -28,6 +28,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import com.example.spring.beginnerbatch.common.Constants;
 import com.example.spring.beginnerbatch.domain.RawSensorDataLineMapper;
+import com.example.spring.beginnerbatch.domain.RawToAggregatedSensorDataProcessor;
+import com.example.spring.beginnerbatch.dto.DailyAggregatedSensorData;
 import com.example.spring.beginnerbatch.dto.DailySensorData;
 
 /**
@@ -68,16 +70,17 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 	@Bean
 	@Qualifier(Constants.AGGREGATE_SENSORS_STEP)
 	public Step aggregateSensorStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-		ListItemWriter<Object> listWriter = new ListItemWriter<Object>();
+		ListItemWriter<DailyAggregatedSensorData> listWriter = new ListItemWriter<DailyAggregatedSensorData>();
 		
 		return new StepBuilder("aggregate-sensor", jobRepository)
 				// Lecture item par item
-				.chunk(1, transactionManager)
+				.<DailySensorData, DailyAggregatedSensorData>chunk(1, transactionManager)
 				.reader(new FlatFileItemReaderBuilder<DailySensorData>()
 						.name("dailySensorDataReader")
 						.resource(rawDailyInputResource)
 						.lineMapper(new RawSensorDataLineMapper())
 						.build())
+				.processor(new RawToAggregatedSensorDataProcessor())
 				.writer(listWriter)
 				.listener(new StepExecutionListener() {
 					@Override
