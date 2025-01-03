@@ -2,17 +2,14 @@ package com.example.spring.beginnerbatch.config;
 
 import javax.sql.DataSource;
 
-import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.StepExecution;
-import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.support.DefaultBatchConfiguration;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.support.ListItemWriter;
+import org.springframework.batch.item.xml.builder.StaxEventItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.batch.BatchDataSourceScriptDatabaseInitializer;
@@ -22,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.WritableResource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -41,6 +39,11 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 
 	@Value(Constants.RAW_SENSORDATA_FILE)
 	private Resource rawDailyInputResource;
+	
+	@Value(Constants.AGGREGATED_SENSORDATA_FILE)
+	private WritableResource aggregatedDailyResource;
+	
+	private static final String AGGREGATE_SENSORS_STEP = "aggregateSensorStep";
 
 	/**
 	 * Job de lecture des données des capteurs avec aggrégation de leurs valeurs
@@ -53,7 +56,7 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 	 */
 	@Bean
 	public Job temperatureSensorJob(JobRepository jobRepository,
-			@Qualifier(Constants.AGGREGATE_SENSORS_STEP) Step aggregateSensorStep) {
+			@Qualifier(AGGREGATE_SENSORS_STEP) Step aggregateSensorStep) {
 		return new JobBuilder("temperatureSensorJob", jobRepository)
 				.start(aggregateSensorStep)
 				.build();
@@ -68,10 +71,8 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 	 * @return le step
 	 */
 	@Bean
-	@Qualifier(Constants.AGGREGATE_SENSORS_STEP)
+	@Qualifier(AGGREGATE_SENSORS_STEP)
 	public Step aggregateSensorStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-		ListItemWriter<DailyAggregatedSensorData> listWriter = new ListItemWriter<DailyAggregatedSensorData>();
-		
 		return new StepBuilder("aggregate-sensor", jobRepository)
 				// Lecture item par item
 				.<DailySensorData, DailyAggregatedSensorData>chunk(1, transactionManager)
@@ -81,15 +82,13 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 						.lineMapper(new RawSensorDataLineMapper())
 						.build())
 				.processor(new RawToAggregatedSensorDataProcessor())
-				.writer(listWriter)
-				.listener(new StepExecutionListener() {
-					@Override
-				    public ExitStatus afterStep(StepExecution stepExecution) {
-				        var writtenItems = listWriter.getWrittenItems();
-				        System.out.println("Items écrits : " + writtenItems);
-				        return ExitStatus.COMPLETED; // Retourne un statut valide
-				    }
-				})
+				.writer(new StaxEventItemWriterBuilder<DailyAggregatedSensorData>()
+						.name("dailyAggregatedSensorDataWriter")
+						.marshaller(DailyAggregatedSensorData.getMarshaller())
+						.resource(aggregatedDailyResource)
+						.rootTagName("data")
+						.overwriteOutput(true)
+						.build())
 				.build();
 	}
 	
