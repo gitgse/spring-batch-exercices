@@ -6,7 +6,6 @@ import java.util.ArrayList;
 
 import org.springframework.batch.item.file.LineMapper;
 
-import com.example.spring.beginnerbatch.common.Constants;
 import com.example.spring.beginnerbatch.dto.DailySensorData;
 
 /**
@@ -19,7 +18,7 @@ public class RawSensorDataLineMapper implements LineMapper<DailySensorData> {
 	public DailySensorData mapLine(String line, int lineNumber) throws Exception {
 		var dateToTemperatureString = line.split(":");
 		var date = LocalDate.parse(dateToTemperatureString[0],
-				DateTimeFormatter.ofPattern(Constants.SENSORLINE_DATE_FORMAT));
+				DateTimeFormatter.ofPattern("MM-dd-uuuu"));
 		
 		var temperaturesString = dateToTemperatureString[1].split(",");
 		var temperatures = new ArrayList<Double>();
