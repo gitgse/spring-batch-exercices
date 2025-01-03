@@ -13,20 +13,24 @@ public class RawToAggregatedSensorDataProcessor implements ItemProcessor<DailySe
 
 	@Override
 	public DailyAggregatedSensorData process(DailySensorData item) throws Exception {
-		return new DailyAggregatedSensorData(
-				item.date(),
-				item.temperatures().stream()
-					.mapToDouble(d -> d)
-					.min()
-					.orElseThrow(),
-				item.temperatures().stream()
-					.mapToDouble(d -> d)
-					.max()
-					.orElseThrow(),
-				item.temperatures().stream()
-					.mapToDouble(d -> d)
-					.average()
-					.orElseThrow());
+		Double min = item.temperatures().get(0);
+		Double max = min;
+		Double sum = 0d;
+		
+		for(Double temp : item.temperatures()) {
+			min = Math.min(min, temp);
+			max = Math.max(max, temp);
+			sum += temp;
+		}
+		
+		return new DailyAggregatedSensorData(item.date(),
+				farenheitToCelsius(min),
+				farenheitToCelsius(max),
+				farenheitToCelsius(sum/item.temperatures().size()));
+	}
+	
+	private static Double farenheitToCelsius(Double temp) {
+		return (temp-32)*5/9;
 	}
 
 }
