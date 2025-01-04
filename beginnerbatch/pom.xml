@@ -28,6 +28,12 @@
 			https://github.com/gitgse/spring-batch-exercices.git</url>
 		<tag>HEAD</tag>
 	</scm>
+    <distributionManagement>
+        <repository>
+            <id>releases</id>
+            <url>file:///home/gilles/Dev/MavenRepository/releases</url>
+        </repository>
+    </distributionManagement>
 	<properties>
 		<java.version>17</java.version>
 	</properties>
