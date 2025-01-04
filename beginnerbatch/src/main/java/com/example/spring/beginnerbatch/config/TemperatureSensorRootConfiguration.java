@@ -30,8 +30,10 @@ import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import com.example.spring.beginnerbatch.common.Constants;
+import com.example.spring.beginnerbatch.domain.AggregatedSensorDataToAnomalyProcessor;
 import com.example.spring.beginnerbatch.domain.RawSensorDataLineMapper;
 import com.example.spring.beginnerbatch.domain.RawToAggregatedSensorDataProcessor;
+import com.example.spring.beginnerbatch.dto.AnomalyData;
 import com.example.spring.beginnerbatch.dto.DailyAggregatedSensorData;
 import com.example.spring.beginnerbatch.dto.DailySensorData;
 
@@ -110,19 +112,20 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 	 * @return le step
 	 */
 	@Bean
-	@Qualifier(AGGREGATE_SENSORS_STEP)
+	@Qualifier(ANOMALY_SENSORS_STEP)
 	public Step anomalySensorStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-		ListItemWriter<DailyAggregatedSensorData> itemWriter = new ListItemWriter<DailyAggregatedSensorData>();
+		ListItemWriter<AnomalyData> itemWriter = new ListItemWriter<AnomalyData>();
 		
 		return new StepBuilder("anomaly-sensor", jobRepository)
 				// Lecture item par item
-				.<DailyAggregatedSensorData, DailyAggregatedSensorData>chunk(1, transactionManager)
+				.<DailyAggregatedSensorData, AnomalyData>chunk(1, transactionManager)
 				.reader(new StaxEventItemReaderBuilder<DailyAggregatedSensorData>()
 						.name("dailyAggregatedSensorDataReader")
 						.unmarshaller(DailyAggregatedSensorData.getMarshaller())
 						.addFragmentRootElements(DailyAggregatedSensorData.ITEM_ROOTELEMENT_NAME)
 						.resource(aggregatedDailyResource)
 						.build())
+				.processor(new AggregatedSensorDataToAnomalyProcessor())
 				.writer(itemWriter)
 				.listener(new StepExecutionListener() {
 					@Override
