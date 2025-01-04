@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>com.example.spring</groupId>
 	<artifactId>beginnerbatch</artifactId>
-	<version>1.0.1</version>
+	<version>1.0.2-SNAPSHOT</version>
 	<name>beginnerbatch</name>
 	<description>Premier TP Spring batch niveau débutant</description>
 	<url />
@@ -26,7 +26,7 @@
 			scm:git:git@github.com:gitgse/spring-batch-exercices.git</developerConnection>
 		<url>
 			https://github.com/gitgse/spring-batch-exercices.git</url>
-		<tag>beginnerbatch-1.0.1</tag>
+		<tag>HEAD</tag>
 	</scm>
     <distributionManagement>
         <repository>
