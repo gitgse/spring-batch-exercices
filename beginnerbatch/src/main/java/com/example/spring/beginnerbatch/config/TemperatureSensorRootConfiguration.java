@@ -2,17 +2,14 @@ package com.example.spring.beginnerbatch.config;
 
 import javax.sql.DataSource;
 
-import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.StepExecution;
-import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.support.DefaultBatchConfiguration;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.support.ListItemWriter;
+import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.batch.item.xml.builder.StaxEventItemReaderBuilder;
 import org.springframework.batch.item.xml.builder.StaxEventItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -46,9 +43,10 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 
 	@Value(Constants.RAW_SENSORDATA_FILE)
 	private Resource rawDailyInputResource;
-	
 	@Value(Constants.AGGREGATED_SENSORDATA_FILE)
 	private WritableResource aggregatedDailyResource;
+	@Value(Constants.ANOMALYDATA_FILE)
+	private WritableResource anomalyDataResource;
 	
 	private static final String AGGREGATE_SENSORS_STEP = "aggregateSensorStep";
 	private static final String ANOMALY_SENSORS_STEP = "anomalySensorStep";
@@ -114,8 +112,6 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 	@Bean
 	@Qualifier(ANOMALY_SENSORS_STEP)
 	public Step anomalySensorStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-		ListItemWriter<AnomalyData> itemWriter = new ListItemWriter<AnomalyData>();
-		
 		return new StepBuilder("anomaly-sensor", jobRepository)
 				// Lecture item par item
 				.<DailyAggregatedSensorData, AnomalyData>chunk(1, transactionManager)
@@ -126,14 +122,13 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 						.resource(aggregatedDailyResource)
 						.build())
 				.processor(new AggregatedSensorDataToAnomalyProcessor())
-				.writer(itemWriter)
-				.listener(new StepExecutionListener() {
-					@Override
-					public ExitStatus afterStep(StepExecution stepExecution) {
-						System.out.println(itemWriter.getWrittenItems());
-						return ExitStatus.COMPLETED;
-					}
-				})
+				.writer(new FlatFileItemWriterBuilder<AnomalyData>()
+						.name("anomalyDataWriter")
+						.resource(anomalyDataResource)
+						.delimited()
+						.delimiter(",")
+						.names("date", "type", "value")
+						.build())
 				.build();
 	}
 
