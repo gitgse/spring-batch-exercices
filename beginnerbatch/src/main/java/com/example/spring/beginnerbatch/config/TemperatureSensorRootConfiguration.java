@@ -2,13 +2,18 @@ package com.example.spring.beginnerbatch.config;
 
 import javax.sql.DataSource;
 
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.support.DefaultBatchConfiguration;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.support.ListItemWriter;
+import org.springframework.batch.item.xml.builder.StaxEventItemReaderBuilder;
 import org.springframework.batch.item.xml.builder.StaxEventItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +49,7 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 	private WritableResource aggregatedDailyResource;
 	
 	private static final String AGGREGATE_SENSORS_STEP = "aggregateSensorStep";
+	private static final String ANOMALY_SENSORS_STEP = "anomalySensorStep";
 
 	/**
 	 * Job de lecture des données des capteurs avec aggrégation de leurs valeurs
@@ -52,13 +58,16 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 	 * 
 	 * @param jobRepository
 	 * @param aggregateSensorStep
+	 * @param anomalySensorStep
 	 * @return le job
 	 */
 	@Bean
 	public Job temperatureSensorJob(JobRepository jobRepository,
-			@Qualifier(AGGREGATE_SENSORS_STEP) Step aggregateSensorStep) {
+			@Qualifier(AGGREGATE_SENSORS_STEP) Step aggregateSensorStep,
+			@Qualifier(ANOMALY_SENSORS_STEP) Step anomalySensorStep) {
 		return new JobBuilder("temperatureSensorJob", jobRepository)
 				.start(aggregateSensorStep)
+				.next(anomalySensorStep)
 				.build();
 	}
 	
@@ -91,6 +100,40 @@ public class TemperatureSensorRootConfiguration extends DefaultBatchConfiguratio
 						.build())
 				.build();
 	}
+
+	/**
+	 * Step de lecture des données aggrégées des capteurs et de sortie des anomalies
+	 * relevées dans un fichier csv
+	 * 
+	 * @param jobRepository
+	 * @param transactionManager
+	 * @return le step
+	 */
+	@Bean
+	@Qualifier(AGGREGATE_SENSORS_STEP)
+	public Step anomalySensorStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+		ListItemWriter<DailyAggregatedSensorData> itemWriter = new ListItemWriter<DailyAggregatedSensorData>();
+		
+		return new StepBuilder("anomaly-sensor", jobRepository)
+				// Lecture item par item
+				.<DailyAggregatedSensorData, DailyAggregatedSensorData>chunk(1, transactionManager)
+				.reader(new StaxEventItemReaderBuilder<DailyAggregatedSensorData>()
+						.name("dailyAggregatedSensorDataReader")
+						.unmarshaller(DailyAggregatedSensorData.getMarshaller())
+						.addFragmentRootElements(DailyAggregatedSensorData.ITEM_ROOTELEMENT_NAME)
+						.resource(aggregatedDailyResource)
+						.build())
+				.writer(itemWriter)
+				.listener(new StepExecutionListener() {
+					@Override
+					public ExitStatus afterStep(StepExecution stepExecution) {
+						System.out.println(itemWriter.getWrittenItems());
+						return ExitStatus.COMPLETED;
+					}
+				})
+				.build();
+	}
+
 	
     /* ******************************** Définition des beans nécessaires à Spring Batch ********************************** */
 
