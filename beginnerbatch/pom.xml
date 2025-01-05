@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.example.spring</groupId>
 	<artifactId>beginnerbatch</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.2.0-SNAPSHOT</version>
 	<name>beginnerbatch</name>
 	<description>Premier TP Spring batch niveau débutant</description>
 	<url/>
